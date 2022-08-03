@@ -11,6 +11,10 @@ import (
 	"log"
 )
 
+
+var p = log.Printf
+
+
 const (
 	qoi_OP_RGB   byte = 0b1111_1110
 	qoi_OP_RGBA  byte = 0b1111_1111
@@ -21,6 +25,8 @@ const (
 
 	qoi_MASK byte = 0b1100_0000
 )
+
+var endianness binary.ByteOrder = binary.BigEndian
 
 type qoiHeader struct {
 	Magic      [4]byte
@@ -36,10 +42,17 @@ type Decoder struct {
 	seen [64]color.NRGBA
 }
 
-type chunkData struct {
+type decoderData struct {
 	px  color.NRGBA
 	run int
 }
+
+type Encoder struct {
+    //im image.Image
+	prev color.NRGBA
+	seen [64]color.NRGBA
+}
+
 
 var ErrInvalidHeader = errors.New("Invalid QOIF header.")
 
@@ -67,10 +80,10 @@ func DecodeHeader(r io.Reader) (qoiHeader, error) {
 	return header, nil
 }
 
-func (d *Decoder) nextChunk() (chunkData, error) {
+func (d *Decoder) nextChunk() (decoderData, error) {
 	b, err := d.buff.ReadByte()
 	if err != nil {
-		return chunkData{}, err
+		return decoderData{}, err
 	}
 
 	px := d.prev
@@ -81,7 +94,7 @@ func (d *Decoder) nextChunk() (chunkData, error) {
 		vals := []byte{0, 0, 0}
 		_, err = io.ReadFull(&d.buff, vals)
 		if err != nil {
-			return chunkData{}, err
+			return decoderData{}, err
 		} // err != nil iff less than three bytes were read in
 
 		px.R = vals[0]
@@ -92,7 +105,7 @@ func (d *Decoder) nextChunk() (chunkData, error) {
 		vals := []byte{0, 0, 0, 0}
 		_, err = io.ReadFull(&d.buff, vals)
 		if err != nil {
-			return chunkData{}, err
+			return decoderData{}, err
 		} // err != nil iff less than four bytes were read in
 
 		px.R = vals[0]
@@ -116,7 +129,7 @@ func (d *Decoder) nextChunk() (chunkData, error) {
 
 			s, err := d.buff.ReadByte()
 			if err != nil {
-				return chunkData{}, err
+				return decoderData{}, err
 			}
 
 			px.R = d.prev.R + dg + (s >> 4 & 0b0000_1111) - 8
@@ -134,7 +147,7 @@ func (d *Decoder) nextChunk() (chunkData, error) {
 
 	d.seen[indexHash(px)] = px
 	d.prev = px
-	return chunkData{px, run}, nil
+	return decoderData{px, run}, nil
 
 }
 
@@ -175,9 +188,129 @@ func indexHash(px color.NRGBA) uint8 {
 	return (3*px.R + 5*px.G + 7*px.B + 11*px.A) % 64
 }
 
+func getPixel(im image.Image, pos int) color.NRGBA {
+    r := im.Bounds()
+    //p("Getting pixel at: %v, %v\n", r.Min.X + pos % r.Dx(), r.Min.Y + pos / r.Dy())
+    cl := im.At(r.Min.X + pos % r.Dx(), r.Min.Y + pos / r.Dy())
+    // Conver from premultiplied alpha to non-premultiplied
+    return color.NRGBAModel.Convert(cl).(color.NRGBA)
+}
+
+func (e *Encoder) nextPixel(px color.NRGBA) []byte {
+    hash := indexHash(px)
+    res := []byte{}
+
+    dr := px.R - e.prev.R + 2
+    dg := px.G - e.prev.G + 2
+    db := px.B - e.prev.B + 2
+
+    if px == e.prev {
+        res = []byte{qoi_OP_RUN}
+        goto DEFER
+    }
+    
+    if e.seen[hash] == px {
+        res = []byte{hash}
+        goto DEFER
+    }
+
+    //Check if the RGB values of the current and previous pixel have a difference somewhere in -2,-1,0,1. If yes, qoi_OP_DIFF
+    if dr < 4 && dg < 4 && db < 4 {
+        res = []byte{qoi_OP_DIFF | dr << 4 | dg << 2 | db}
+        //if res[0] == 0x55 {
+            //p("%v, %v, %v, %v,\n", qoi_OP_DIFF, dr << 4, dg << 2, db)
+        //}
+        goto DEFER
+    }
+
+    //Check qoi_OP_LUMA
+    dr = dr - dg + 8
+    db = db - dg + 8
+    dg = dg + 30
+    if dg < 64 && dr < 16 && db < 16 {
+        res = []byte{
+            qoi_OP_LUMA | dg,
+            dr << 4 | db,
+        }
+        //p("LUMA: %8b|%8b\n", res[0], res[1])
+        goto DEFER
+    }
+
+    if px.A == e.prev.A {
+        res = []byte{qoi_OP_RGB, px.R, px.G, px.B}
+        goto DEFER
+    }
+
+    res = []byte{qoi_OP_RGBA, px.R, px.G, px.B, px.A}
+
+    DEFER:
+    //if res[0] == 0x55 {
+        //log.Fatalf("Something went wrong! %v, %v", res, px)
+    //}
+    e.prev = px
+    e.seen[hash] = px
+    return res
+}
+// TODO: Implement encoder
+func Encode(w io.Writer, im image.Image) error {
+    buff := bufio.NewWriter(w)
+    // Write header
+    header := make([]byte, 14)
+    header[0] = 'q'
+    header[1] = 'o'
+    header[2] = 'i'
+    header[3] = 'f'
+    binary.BigEndian.PutUint32(header[4:8], uint32(im.Bounds().Dx()))
+    binary.BigEndian.PutUint32(header[8:12], uint32(im.Bounds().Dy()))
+    header[12] = 4
+    header[13] = 0
+
+    binary.Write(buff, binary.BigEndian, header)
+
+
+    number_pixels := im.Bounds().Dx() * im.Bounds().Dy()
+
+    encoder := Encoder{
+        prev: color.NRGBA{0, 0, 0, 255},
+        seen: [64]color.NRGBA{},
+    }
+
+    for pos := 0; pos < number_pixels; pos++ {
+        px := getPixel(im, pos)
+
+        //p("%v\n", px)
+        nextChunk := encoder.nextPixel(px)
+
+        //if nextChunk[0] == 0x55 {
+            //log.Fatalf("Something went wrong! %v, %v\n", nextChunk, pos)
+        //}
+        if nextChunk[0] == qoi_OP_RUN {
+            var run byte = 0
+            for run < 61 {
+                runPos := pos + int(run) + 1
+                if runPos >= number_pixels {
+                    break
+                }
+                runPx := getPixel(im, runPos)
+                if runPx != px {
+                    break
+                }
+                run++
+            }
+            nextChunk[0] = qoi_OP_RUN | run
+            pos += int(run)
+        }
+
+        binary.Write(buff, binary.BigEndian, nextChunk)
+    }
+    binary.Write(buff, binary.BigEndian, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01})
+    buff.Flush()
+    return nil
+}
+
+
 // TODO: Implement a function which shows which of a pictures pixels were encoded in which way
 func showHowEncoded() {}
 
 
-// TODO: Implement encoder
 

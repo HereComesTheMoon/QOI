@@ -8,7 +8,12 @@ import (
 	//"io"
 )
 
+var p = log.Printf
+
 func main() {
+    p("%8b\n", 0xCD)
+    p("%8b\n", 0x69)
+    test_write("./qoi_test_images/dice.png")
     //f, err := os.Open("./qoi_test_images/testcard.qoi")
     //if err != nil {
         //log.Fatalf("No\n.")
@@ -34,10 +39,40 @@ func main() {
         //log.Fatalf("%v.", err)
     //}
 
-    if !test_img("./qoi_test_images/testcard.qoi", "./qoi_test_images/testcard.png") {
-        log.Printf("Nooo")
-    }
+    //if !test_img("./qoi_test_images/testcard.qoi", "./qoi_test_images/testcard.png") {
+        //log.Printf("Nooo")
+    //}
     
+}
+
+func test_write(loc_png string) bool {
+    f, err  := os.Open(loc_png)
+    if err != nil {
+        log.Fatalf("%v.", err)
+    }
+
+    im_png, err := png.Decode(f)
+    if err != nil {
+        log.Fatalf("%v.", err)
+    }
+
+    test_qoi := "./qoi_test_images/aaa.qoi"
+    out, err := os.Create(test_qoi)
+    qoi.Encode(out, im_png)
+
+    p("Now decoding...\n")
+
+    f, err = os.Open(test_qoi)
+    if err != nil {
+        log.Fatalf("%v.", err)
+    }
+
+    im_qoi, err := qoi.Decode(f)
+
+    f, err = os.Create("./qoi_test_images/aaa2.png")
+    png.Encode(f, im_qoi)
+
+    return true
 }
 
 func test_img(loc_qoi, loc_png string) bool {
