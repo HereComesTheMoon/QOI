@@ -190,10 +190,12 @@ func indexHash(px color.NRGBA) uint8 {
 
 func getPixel(im image.Image, pos int) color.NRGBA {
     r := im.Bounds()
-    //p("Getting pixel at: %v, %v\n", r.Min.X + pos % r.Dx(), r.Min.Y + pos / r.Dy())
-    cl := im.At(r.Min.X + pos % r.Dx(), r.Min.Y + pos / r.Dy())
+    //p("Getting pixel at: %v, %v\n", r.Min.X + pos % r.Dx(), r.Min.Y + pos / r.Dx())
+    cl := im.At(r.Min.X + pos % r.Dx(), r.Min.Y + pos / r.Dx())
     // Conver from premultiplied alpha to non-premultiplied
     return color.NRGBAModel.Convert(cl).(color.NRGBA)
+    //cr, cg, cb, ca := color.NRGBAModel.Convert(cl).RGBA()
+    //return color.NRGBA{byte(cr >> 8), byte(cg >> 8), byte(cb >> 8), byte(ca >> 8)}
 }
 
 func (e *Encoder) nextPixel(px color.NRGBA) []byte {
@@ -215,7 +217,7 @@ func (e *Encoder) nextPixel(px color.NRGBA) []byte {
     }
 
     //Check if the RGB values of the current and previous pixel have a difference somewhere in -2,-1,0,1. If yes, qoi_OP_DIFF
-    if dr < 4 && dg < 4 && db < 4 {
+    if dr < 4 && dg < 4 && db < 4 && e.prev.A == px.A {
         res = []byte{qoi_OP_DIFF | dr << 4 | dg << 2 | db}
         //if res[0] == 0x55 {
             //p("%v, %v, %v, %v,\n", qoi_OP_DIFF, dr << 4, dg << 2, db)
@@ -227,7 +229,7 @@ func (e *Encoder) nextPixel(px color.NRGBA) []byte {
     dr = dr - dg + 8
     db = db - dg + 8
     dg = dg + 30
-    if dg < 64 && dr < 16 && db < 16 {
+    if dg < 64 && dr < 16 && db < 16 && e.prev.A == px.A {
         res = []byte{
             qoi_OP_LUMA | dg,
             dr << 4 | db,
@@ -281,8 +283,9 @@ func Encode(w io.Writer, im image.Image) error {
         //p("%v\n", px)
         nextChunk := encoder.nextPixel(px)
 
-        //if nextChunk[0] == 0x55 {
-            //log.Fatalf("Something went wrong! %v, %v\n", nextChunk, pos)
+        //p("Pixel: %v\n", px)
+        //if nextChunk[0] == 0x6b {
+            //log.Fatalf("Something went wrong! %v, prev: %v, %v\n", nextChunk, px, pos)
         //}
         if nextChunk[0] == qoi_OP_RUN {
             var run byte = 0

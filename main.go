@@ -11,8 +11,15 @@ import (
 var p = log.Printf
 
 func main() {
-    p("%8b\n", 0xCD)
-    p("%8b\n", 0x69)
+    f := func(a byte) {
+        p("%x: %d: %8b\n", a, a, a)
+    }
+    f(0xFD)
+    f(0xED)
+    f(0x6B)
+    f(0xC0)
+    f(0xFF)
+    f(0x00)
     test_write("./qoi_test_images/dice.png")
     //f, err := os.Open("./qoi_test_images/testcard.qoi")
     //if err != nil {

@@ -21,12 +21,12 @@ func (w *VirtualWriter) Write(p []byte) (n int, err error) {
 func _TestDecoder(t *testing.T) {
 	path := "../qoi_test_images/"
 	images := []string{
-		"dice",
+        "dice",
 		"kodim10",
 		"kodim23",
 		"qoi_logo",
 		"testcard",
-		"testcard_rgba",
+        "testcard_rgba",
 		"wikipedia_008",
 	}
 
@@ -96,6 +96,7 @@ func test_decoder(loc_qoi, loc_png string, t testing.T) bool {
 }
 
 func test_encoder(loc_qoi, loc_png string, t testing.T) bool {
+    p("Now testing on %v...\n", loc_png)
     f, err  := os.Open(loc_png)
     if err != nil {
         t.Fatalf("%v.", err)
@@ -118,9 +119,13 @@ func test_encoder(loc_qoi, loc_png string, t testing.T) bool {
 
     buff := bufio.NewReader(f)
 
-    for k, val := range encoderOutput.d {
+    for _ = range encoderOutput.d[:14] {
+        _, _ = buff.ReadByte()
+    }
+
+    for k, val := range encoderOutput.d[14:] {
         wanted, err := buff.ReadByte()
-        p("Got/wanted: %v == %v\n", val, wanted)
+        //p("Got/wanted: %v == %v\n", val, wanted)
         if err != nil {
             p("Unable to read from %v.\n", loc_qoi)
             return false
