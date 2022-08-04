@@ -1,0 +1,7 @@
+  qoi_OP_RGB was used to encode       1185 pixels ( 0.247%), using        3555 bytes ( 0.835%) total.Bytes per pixel ratio: 1 Byte ~  0.333 Pixels. Color: {255 0 0 255}
+ qoi_OP_RGBA was used to encode      92749 pixels (19.323%), using      370996 bytes (87.150%) total.Bytes per pixel ratio: 1 Byte ~  0.250 Pixels. Color: {255 0 255 255}
+qoi_OP_INDEX was used to encode       3493 pixels ( 0.728%), using        3493 bytes ( 0.821%) total.Bytes per pixel ratio: 1 Byte ~  1.000 Pixels. Color: {0 255 0 255}
+ qoi_OP_DIFF was used to encode      13895 pixels ( 2.895%), using       13895 bytes ( 3.264%) total.Bytes per pixel ratio: 1 Byte ~  1.000 Pixels. Color: {255 255 0 255}
+ qoi_OP_LUMA was used to encode       8870 pixels ( 1.848%), using       17740 bytes ( 4.167%) total.Bytes per pixel ratio: 1 Byte ~  0.500 Pixels. Color: {0 0 255 255}
+  qoi_OP_RUN was used to encode     359808 pixels (74.960%), using       16018 bytes ( 3.763%) total.Bytes per pixel ratio: 1 Byte ~ 22.463 Pixels. Color: {0 255 255 255}
+Overall compression ratio: 22.171719%
