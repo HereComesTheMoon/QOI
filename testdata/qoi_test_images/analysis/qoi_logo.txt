@@ -1,7 +1,7 @@
- qoi_OP_DIFF was used to encode          0 pixels ( 0.000%), using           0 bytes ( 0.000%) total.Bytes per pixel ratio: 1 Byte ~    NaN Pixels. Color: {255 255 0 255}
- qoi_OP_LUMA was used to encode          0 pixels ( 0.000%), using           0 bytes ( 0.000%) total.Bytes per pixel ratio: 1 Byte ~    NaN Pixels. Color: {0 0 255 255}
-  qoi_OP_RUN was used to encode      93755 pixels (95.125%), using        2445 bytes (17.265%) total.Bytes per pixel ratio: 1 Byte ~ 38.346 Pixels. Color: {0 255 255 255}
-  qoi_OP_RGB was used to encode          0 pixels ( 0.000%), using           0 bytes ( 0.000%) total.Bytes per pixel ratio: 1 Byte ~    NaN Pixels. Color: {255 0 0 255}
- qoi_OP_RGBA was used to encode       2304 pixels ( 2.338%), using        9216 bytes (65.076%) total.Bytes per pixel ratio: 1 Byte ~  0.250 Pixels. Color: {255 0 255 255}
-qoi_OP_INDEX was used to encode       2501 pixels ( 2.538%), using        2501 bytes (17.660%) total.Bytes per pixel ratio: 1 Byte ~  1.000 Pixels. Color: {0 255 0 255}
+  qoi_OP_RGB was used to encode          0 pixels ( 0.000%), using           0 bytes ( 0.000%) total. Bytes per pixel ratio: 1 Byte ~    NaN Pixels. Color: {255 0 0 255}
+ qoi_OP_RGBA was used to encode       2304 pixels ( 2.338%), using        9216 bytes (65.076%) total. Bytes per pixel ratio: 1 Byte ~  0.250 Pixels. Color: {255 0 255 255}
+qoi_OP_INDEX was used to encode       2501 pixels ( 2.538%), using        2501 bytes (17.660%) total. Bytes per pixel ratio: 1 Byte ~  1.000 Pixels. Color: {0 255 0 255}
+ qoi_OP_DIFF was used to encode          0 pixels ( 0.000%), using           0 bytes ( 0.000%) total. Bytes per pixel ratio: 1 Byte ~    NaN Pixels. Color: {255 255 0 255}
+ qoi_OP_LUMA was used to encode          0 pixels ( 0.000%), using           0 bytes ( 0.000%) total. Bytes per pixel ratio: 1 Byte ~    NaN Pixels. Color: {0 0 255 255}
+  qoi_OP_RUN was used to encode      93755 pixels (95.125%), using        2445 bytes (17.265%) total. Bytes per pixel ratio: 1 Byte ~ 38.346 Pixels. Color: {0 255 255 255}
 Overall compression ratio: 3.5922282%

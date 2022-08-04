@@ -7,13 +7,13 @@ import (
 	"image/color"
 	"image/png"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 type encodingAnalysis struct {
+	_ops       [6]byte // Purely to ensure that we always iterate over these in the same order.
 	op         map[byte]string
 	num_pixels map[byte]int // Pixels encoded by a given tool
 	num_bytes  map[byte]int // Bytes used to encode certain amount of pixels
@@ -22,11 +22,20 @@ type encodingAnalysis struct {
 
 func newEncodingAnalysis() encodingAnalysis {
 	d := encodingAnalysis{
+		_ops:       [6]byte{},
 		op:         map[byte]string{},
 		num_pixels: map[byte]int{},
 		num_bytes:  map[byte]int{},
 		color:      map[byte]color.NRGBA{},
 	}
+
+	d._ops[0] = qoi_OP_RGB
+	d._ops[1] = qoi_OP_RGBA
+	d._ops[2] = qoi_OP_INDEX
+	d._ops[3] = qoi_OP_DIFF
+	d._ops[4] = qoi_OP_LUMA
+	d._ops[5] = qoi_OP_RUN
+
 	d.op[qoi_OP_RGB] = "qoi_OP_RGB"
 	d.op[qoi_OP_RGBA] = "qoi_OP_RGBA"
 	d.op[qoi_OP_INDEX] = "qoi_OP_INDEX"
@@ -116,7 +125,6 @@ func showEncoding(r io.Reader) (*image.NRGBA, encodingAnalysis, error) {
 
 			case qoi_OP_RUN:
 				px = d.color[b&qoi_MASK]
-				//px = color.NRGBA{0, 0, 0, 0}
 				run = int(1 + (b & ^qoi_MASK))
 				d.num_pixels[b&qoi_MASK] += run
 				d.num_bytes[b&qoi_MASK]++
@@ -182,11 +190,12 @@ func AnalyzeEncodedImagesInFolder(folder string) {
 			total_bytes += v
 		}
 
-		for k, v := range d.op {
+		for _, k := range d._ops {
+			v := d.op[k]
 			num_pixels := d.num_pixels[k]
 			num_bytes := d.num_bytes[k]
 
-			txt_out.WriteString(fmt.Sprintf("%12v was used to encode %10v pixels (%6.3f%%), using %11v bytes (%6.3f%%) total.", v, num_pixels, float32(400*num_pixels)/float32(len(new_im.Pix)), num_bytes, float32(100*num_bytes)/float32(total_bytes)))
+			txt_out.WriteString(fmt.Sprintf("%12v was used to encode %10v pixels (%6.3f%%), using %11v bytes (%6.3f%%) total. ", v, num_pixels, float32(400*num_pixels)/float32(len(new_im.Pix)), num_bytes, float32(100*num_bytes)/float32(total_bytes)))
 			txt_out.WriteString(fmt.Sprintf("Bytes per pixel ratio: 1 Byte ~ %6.3f Pixels. Color: %v\n", float32(num_pixels)/float32(num_bytes), d.color[k]))
 		}
 		txt_out.WriteString(fmt.Sprintf("Overall compression ratio: %v%%\n", float32(100*total_bytes)/float32(len(new_im.Pix))))
