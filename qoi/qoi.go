@@ -21,7 +21,8 @@ const (
 	qoi_OP_LUMA  byte = 0b1000_0000
 	qoi_OP_RUN   byte = 0b1100_0000
 
-	qoi_MASK byte = 0b1100_0000
+	qoi_MASK    byte = 0b1100_0000
+	qoi_MAXSIZE int  = 20000 * 20000
 )
 
 var endianness binary.ByteOrder = binary.BigEndian
@@ -52,6 +53,7 @@ type Encoder struct {
 
 var ErrInvalidHeader = errors.New("Invalid QOIF header.")
 
+// Returns header data of a QOI file.
 func DecodeHeader(r io.Reader) (qoiHeader, error) {
 	header := qoiHeader{}
 
@@ -76,6 +78,7 @@ func DecodeHeader(r io.Reader) (qoiHeader, error) {
 	return header, nil
 }
 
+// Decoder reads in the next chunk from QOI file, and returns the corresponding pixel, along with the run.
 func (d *Decoder) nextChunk() (decoderData, error) {
 	b, err := d.buff.ReadByte()
 	if err != nil {
@@ -135,9 +138,6 @@ func (d *Decoder) nextChunk() (decoderData, error) {
 
 		case qoi_OP_RUN:
 			run = int(1 + (b & ^qoi_MASK))
-
-		default:
-			log.Fatalf("Should not happen: %b & %b == %b ... %b \n", b, qoi_MASK, b&qoi_MASK, qoi_OP_DIFF)
 		}
 	}
 
@@ -147,14 +147,18 @@ func (d *Decoder) nextChunk() (decoderData, error) {
 
 }
 
+// Takes reader of QOI file, returns image.Image
 func Decode(r io.Reader) (image.Image, error) {
 	header, err := DecodeHeader(r)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: Consider to add a warning when surpassing a maximum size in here. The original implementation uses 20000x20000 pixels max, but this is not part of the spec.
 	im := image.NewNRGBA(image.Rect(0, 0, int(header.Width), int(header.Height)))
+
+	if im.Rect.Dx()*im.Rect.Dy() > qoi_MAXSIZE {
+		p("Warning: Largest commonly used image size of 400 million pixels surpassed. Many implementations of the QOI format—in particular the original one in C—do not support images of this size.\n")
+	}
 
 	decoder := Decoder{
 		buff: *bufio.NewReader(r),
@@ -176,7 +180,6 @@ func Decode(r io.Reader) (image.Image, error) {
 			pos += 4
 		}
 	}
-
 	return im, nil
 }
 
@@ -186,12 +189,8 @@ func indexHash(px color.NRGBA) uint8 {
 
 func getPixel(im image.Image, pos int) color.NRGBA {
 	r := im.Bounds()
-	//p("Getting pixel at: %v, %v\n", r.Min.X + pos % r.Dx(), r.Min.Y + pos / r.Dx())
 	cl := im.At(r.Min.X+pos%r.Dx(), r.Min.Y+pos/r.Dx())
-	// Conver from premultiplied alpha to non-premultiplied
 	return color.NRGBAModel.Convert(cl).(color.NRGBA)
-	//cr, cg, cb, ca := color.NRGBAModel.Convert(cl).RGBA()
-	//return color.NRGBA{byte(cr >> 8), byte(cg >> 8), byte(cb >> 8), byte(ca >> 8)}
 }
 
 func (e *Encoder) nextPixel(px color.NRGBA) []byte {
@@ -215,13 +214,10 @@ func (e *Encoder) nextPixel(px color.NRGBA) []byte {
 	//Check if the RGB values of the current and previous pixel have a difference somewhere in -2,-1,0,1. If yes, qoi_OP_DIFF
 	if dr < 4 && dg < 4 && db < 4 && e.prev.A == px.A {
 		res = []byte{qoi_OP_DIFF | dr<<4 | dg<<2 | db}
-		//if res[0] == 0x55 {
-		//p("%v, %v, %v, %v,\n", qoi_OP_DIFF, dr << 4, dg << 2, db)
-		//}
 		goto DEFER
 	}
 
-	//Check qoi_OP_LUMA
+	//Check qoi_OP_LUMA, similar to qoi_OP_DIFF
 	dr = dr - dg + 8
 	db = db - dg + 8
 	dg = dg + 30
@@ -230,7 +226,6 @@ func (e *Encoder) nextPixel(px color.NRGBA) []byte {
 			qoi_OP_LUMA | dg,
 			dr<<4 | db,
 		}
-		//p("LUMA: %8b|%8b\n", res[0], res[1])
 		goto DEFER
 	}
 
@@ -239,17 +234,16 @@ func (e *Encoder) nextPixel(px color.NRGBA) []byte {
 		goto DEFER
 	}
 
+	// Default case. If everything fails (in particular, if the alpha value is different) store the entire pixel.
 	res = []byte{qoi_OP_RGBA, px.R, px.G, px.B, px.A}
 
 DEFER:
-	//if res[0] == 0x55 {
-	//log.Fatalf("Something went wrong! %v, %v", res, px)
-	//}
 	e.prev = px
 	e.seen[hash] = px
 	return res
 }
 
+// Take in an image, convert to QOI and write the result to the specified location.
 func Encode(w io.Writer, im image.Image) error {
 	buff := bufio.NewWriter(w)
 	// Write header
@@ -272,16 +266,15 @@ func Encode(w io.Writer, im image.Image) error {
 		seen: [64]color.NRGBA{},
 	}
 
+	if number_pixels > qoi_MAXSIZE {
+		p("Warning: Largest commonly used image size of 400 million pixels surpassed. Many implementations of the QOI format—in particular the original one in C—do not support images of this size.\n")
+	}
+
 	for pos := 0; pos < number_pixels; pos++ {
 		px := getPixel(im, pos)
 
-		//p("%v\n", px)
 		nextChunk := encoder.nextPixel(px)
 
-		//p("Pixel: %v\n", px)
-		//if nextChunk[0] == 0x6b {
-		//log.Fatalf("Something went wrong! %v, prev: %v, %v\n", nextChunk, px, pos)
-		//}
 		if nextChunk[0] == qoi_OP_RUN {
 			var run byte = 0
 			for run < 61 {
@@ -305,4 +298,3 @@ func Encode(w io.Writer, im image.Image) error {
 	buff.Flush()
 	return nil
 }
-
